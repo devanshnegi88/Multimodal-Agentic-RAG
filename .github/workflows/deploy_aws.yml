@@ -1,0 +1,76 @@
+name: Deploy to AWS ECS
+
+on:
+  push:
+    branches: [ main ]
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+  CLUSTER_NAME: ${{ secrets.ECS_CLUSTER }}
+  SERVICE_BACKEND: ${{ secrets.ECS_SERVICE_BACKEND }}
+  SERVICE_FRONTEND: ${{ secrets.ECS_SERVICE_FRONTEND }}
+  ECR_REPO_BACKEND: agentic-rag-backend
+  ECR_REPO_FRONTEND: agentic-rag-frontend
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Create ECR repos (if missing)
+        run: |
+          aws ecr create-repository --repository-name $ECR_REPO_BACKEND || true
+          aws ecr create-repository --repository-name $ECR_REPO_FRONTEND || true
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: docker/Dockerfile.backend
+          push: true
+          tags: ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO_BACKEND }}:${{ github.sha }}
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: docker/Dockerfile.frontend
+          push: true
+          tags: ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO_FRONTEND }}:${{ github.sha }}
+
+      - name: Prepare backend task definition
+        run: |
+          sed 's|IMAGE_PLACEHOLDER|${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO_BACKEND }}:${{ github.sha }}|' deploy/aws/taskdef-backend.json > /tmp/taskdef-backend.json
+
+      - name: Register backend task definition
+        run: |
+          aws ecs register-task-definition --cli-input-json file:///tmp/taskdef-backend.json
+
+      - name: Force new deployment for backend service
+        run: |
+          aws ecs update-service --cluster ${{ env.CLUSTER_NAME }} --service ${{ env.SERVICE_BACKEND }} --force-new-deployment || true
+
+      - name: Prepare frontend task definition
+        run: |
+          sed 's|IMAGE_PLACEHOLDER|${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO_FRONTEND }}:${{ github.sha }}|' deploy/aws/taskdef-frontend.json > /tmp/taskdef-frontend.json
+
+      - name: Register frontend task definition
+        run: |
+          aws ecs register-task-definition --cli-input-json file:///tmp/taskdef-frontend.json
+
+      - name: Force new deployment for frontend service
+        run: |
+          aws ecs update-service --cluster ${{ env.CLUSTER_NAME }} --service ${{ env.SERVICE_FRONTEND }} --force-new-deployment || true

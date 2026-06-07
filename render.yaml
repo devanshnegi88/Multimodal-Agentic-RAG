@@ -1,0 +1,19 @@
+# Render service manifest for deploying backend and frontend
+services:
+  - type: web
+    name: agentic-rag-backend
+    env: docker
+    dockerfilePath: docker/Dockerfile.backend
+    region: oregon
+    envVars:
+      - key: PORT
+        value: "8000"
+    healthCheckPath: /api/health
+
+  - type: static
+    name: agentic-rag-frontend
+    buildCommand: npm ci --prefix frontend && npm run build --prefix frontend
+    staticPublishPath: frontend/dist
+    envVars:
+      - key: FORCE_HTTPS
+        value: "true"
