@@ -1,5 +1,5 @@
-# ── Backend Dockerfile ───────────────────────────────────────
-FROM python:3.11-slim AS base
+# ── Backend Dockerfile ────────────────────────────────────────
+FROM python:3.11-slim
 
 # System dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -10,25 +10,28 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libsm6 \
     libxext6 \
     libgl1-mesa-glx \
+    ghostscript \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Install Python dependencies
+# Install Python dependencies (layer-cached)
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
-# Copy application
+# Copy application code only — secrets come from platform env vars
 COPY backend/ ./backend/
-COPY .env .
 
-# Create directories
-RUN mkdir -p uploads/pdfs uploads/images uploads/videos uploads/audio uploads/excel uploads/ppt \
-    vector_db/qdrant vector_db/faiss data/processed data/raw data/cache logs
+# Create runtime directories
+RUN mkdir -p \
+    uploads/pdfs uploads/images uploads/videos \
+    uploads/audio uploads/excel uploads/ppt \
+    vector_db/qdrant vector_db/faiss \
+    data/processed data/raw data/cache logs
 
-# Non-root user
+# Non-root user for security
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
@@ -36,7 +39,8 @@ WORKDIR /app/backend
 
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8000/api/health || exit 1
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+# 2 workers suitable for free-tier RAM limits
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
