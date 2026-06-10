@@ -21,7 +21,7 @@ services:
         value: "false"
       # Update ALLOWED_ORIGINS with your actual frontend URL after first deploy
       - key: ALLOWED_ORIGINS
-        value: https://agentic-rag-frontend.onrender.com
+        value: '["https://agentic-rag-frontend.onrender.com","https://agentic-rag-backend.onrender.com"]'
       - key: JWT_ALGORITHM
         value: HS256
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
