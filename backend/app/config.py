@@ -1,7 +1,9 @@
 """
 Application configuration using Pydantic Settings
 """
+# pyrefly: ignore [missing-import]
 from pydantic_settings import BaseSettings
+# pyrefly: ignore [missing-import]
 from pydantic import Field, field_validator
 from typing import List, Union
 from functools import lru_cache
