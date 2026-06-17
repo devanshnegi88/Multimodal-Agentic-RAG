@@ -15,7 +15,7 @@ langgraph==0.1.9
 
 # ── Vector Stores ─────────────────────────────────────────────
 qdrant-client==1.9.1
-faiss-cpu==1.14.2
+# faiss-cpu==1.14.2
 sentence-transformers==3.0.1
 
 # ── Database ─────────────────────────────────────────────────

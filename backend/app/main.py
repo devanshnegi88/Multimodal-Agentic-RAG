@@ -1,6 +1,7 @@
 """
 Multimodal Agentic RAG — FastAPI Application Entry Point
 """
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -45,7 +46,15 @@ app.add_middleware(
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # ── Static Files ──────────────────────────────────────────────
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
+
+os.makedirs("uploads", exist_ok=True)
+
+app.mount(
+    "/uploads",
+    StaticFiles(directory="uploads"),
+    name="uploads"
+)
 
 # ── Routers ───────────────────────────────────────────────────
 app.include_router(auth.router,       prefix="/api/auth",      tags=["Auth"])
