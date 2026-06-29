@@ -154,36 +154,381 @@ The system supports enterprise knowledge bases, documents, images, audio files, 
 
 ---
 
-## 🏗️ System Architecture
 
-                    User Query
+
+## High-Level Architecture
+
+```text
+                                     +----------------------+
+                                     |      React UI        |
+                                     | Dashboard + Chat UI  |
+                                     | Upload Manager       |
+                                     | Agent Monitor        |
+                                     | Analytics Dashboard  |
+                                     +----------+-----------+
+                                                |
+                                      REST API / WebSocket
+                                                |
+                                                ▼
++------------------------------------------------------------------------------------------------------+
+|                                       FastAPI Backend                                                |
+|------------------------------------------------------------------------------------------------------|
+| Auth API | Upload API | Chat API | Documents API | Analytics API | Settings API | Health API        |
++------------------------------------------------------------------------------------------------------+
+                                                |
+                                                ▼
++------------------------------------------------------------------------------------------------------+
+|                                    Coordinator Agent                                                  |
+|------------------------------------------------------------------------------------------------------|
+| Orchestrates the complete workflow, agent execution, retries, workflow state and live events.       |
++------------------------------------------------------------------------------------------------------+
+                                                |
+      ┌───────────────────────────────┬───────────────────────────────┬───────────────────────────────┐
+      ▼                               ▼                               ▼
++------------------+          +------------------+           +------------------+
+| Planner Agent    |          | Memory Agent     |           | Web Search Agent |
+| Plans execution  |          | Retrieves memory |           | Optional Search  |
++------------------+          +------------------+           +------------------+
+      │
+      ▼
++------------------+
+| Retrieval Agent  |
+| Vector Retrieval |
++------------------+
+      │
+      ▼
++------------------+
+| Vision Agent     |
+| OCR / Images     |
++------------------+
+      │
+      ▼
++------------------+
+| Prompt Builder   |
++------------------+
+      │
+      ▼
++------------------+
+| Gemini LLM       |
+| Claude (Optional)|
++------------------+
+      │
+      ▼
++------------------+
+| Critic Agent     |
+| Quality Review   |
++------------------+
+      │
+      ▼
+   Approved?
+┌───────────┴───────────┐
+│                       │
+YES                    NO
+│                       │
+▼                       ▼
+Answer Agent      Critic Feedback
+│                       │
+▼                       ▼
+Format Response   Coordinator
+│                 │
+▼                 ▼
+Return Answer  Retry Selected Agents
+               (Planner / Retrieval /
+               Vision / Web Search /
+               Prompt Builder)
+               Max Retries = 3
+```
+
+---
+
+# Document Ingestion Pipeline
+
+```text
+User Upload
+      │
+      ▼
+Detect File Type
+      │
+      ├── PDF
+      ├── DOCX
+      ├── PPTX
+      ├── XLSX
+      ├── CSV
+      ├── TXT
+      ├── Images
+      ├── Audio
+      └── Video
+      │
+      ▼
+Document Parser
+      │
+      ▼
+OCR / Speech-to-Text (if required)
+      │
+      ▼
+Extract Raw Text
+      │
+      ▼
+Text Cleaning
+      │
+      ▼
+Metadata Extraction
+      │
+      ▼
+Chunking
+      │
+      ▼
+Embedding Manager
+      │
+      ├── OpenAI Embeddings
+      ├── Gemini Embeddings
+      └── SentenceTransformer (Offline Fallback)
+      │
+      ▼
+Vector Store Manager
+      │
+      ▼
+Store Embeddings → Qdrant
+      │
+      ▼
+Store Metadata → MongoDB
+```
+
+---
+
+# Query Pipeline
+
+```text
+User Question
+      │
+      ▼
+Coordinator Agent
+      │
+      ▼
+Planner Agent
+      │
+      ▼
+Generate Query Embedding
+      │
+      ▼
+Vector Store Manager
+      │
+      ▼
+Qdrant Semantic Search
+      │
+      ▼
+Retrieve Top-K Chunks
+      │
+      ▼
+Reranker
+      │
+      ▼
+Memory Agent
+      │
+      ▼
+Vision Agent (if needed)
+      │
+      ▼
+Web Search Agent (optional)
+      │
+      ▼
+Prompt Builder
+      │
+      ▼
+Gemini 2.5 Flash
+      │
+      ▼
+Critic Agent
+      │
+      ▼
+Answer Agent
+      │
+      ▼
+Store Conversation
+      │
+      ▼
+Return Final Answer with Citations
+```
+
+---
+
+# Embedding Architecture
+
+```text
+                 Generate Embeddings
                          │
                          ▼
-                 Query Router
+               Embedding Manager
+                         │
+         ┌───────────────┼───────────────┐
+         ▼               ▼               ▼
+ OpenAI Embeddings Gemini Embeddings SentenceTransformer
+         │               │               │
+         └──────Fallback Logic───────────┘
                          │
                          ▼
-                Agent Orchestrator
-                         │
-     ┌──────────┬────────┼────────┬──────────┐     ▼          ▼        ▼        ▼          ▼
- Retrieval   Planning  Vision  Memory   Web SSearch   Agent      Agent    Agent    Agent      AAgent     │          │     ─┴────────┼────────┴──────────┘──────┴────────┼────────┴──────────┘               ▼
-                  RAG Pipeline
-                         │
-      ┌──────────────────┼──────────────────┐
-      ▼                  ▼                  ▼
- Vector Search      Hybrid Search      Re-Ranking
-      │                  │                  │
-      └──────────────────┴──────────────────┘
-                         ▼
-                 Knowledge Sources
-                         │
-     ┌────────┬────────┬────────┬────────┐
-     ▼        ▼        ▼        ▼        ▼
-    PDF     Images    Audio   Video   Databases
-                         │
-                         ▼
-                  Final Response
+               Return Embedding Vector
+```
+
+---
+
+# LLM Architecture
+
+```text
+User Context
+      │
+      ▼
+Prompt Builder
+      │
+      ▼
+Gemini 2.5 Flash
+      │
+      ▼
+Generated Answer
+      │
+      ▼
+Critic Agent
+      │
+ ┌────┴────┐
+ │         │
+Approve   Reject
+ │         │
+ ▼         ▼
+Answer   Coordinator
+Agent        │
+             ▼
+      Retry Required Agents
+             │
+             ▼
+      Generate Better Answer
+```
+
+---
+
+# Vector Database Architecture
+
+```text
+Document
+     │
+     ▼
+Chunking
+     │
+     ▼
+Embedding Manager
+     │
+     ▼
+Qdrant Vector Database
+     │
+     ▼
+Semantic Search
+     │
+     ▼
+Top-K Retrieval
+     │
+     ▼
+Reranker
+     │
+     ▼
+Prompt Builder
+```
+
+---
+
+# Agent Responsibilities
+
+| Agent | Responsibility |
+|--------|----------------|
+| Coordinator Agent | Orchestrates workflow, retries, state management and live events |
+| Planner Agent | Determines execution strategy |
+| Retrieval Agent | Retrieves relevant chunks from Qdrant |
+| Memory Agent | Retrieves previous conversations |
+| Vision Agent | Processes images, OCR, charts and tables |
+| Web Search Agent | Retrieves external knowledge if required |
+| Critic Agent | Detects hallucinations, validates answer quality and requests retries |
+| Answer Agent | Formats the final answer with citations |
+
+---
+
+# Storage Layer
+
+```text
+                 MongoDB
+                 │
+                 ├── Users
+                 ├── Documents
+                 ├── Conversations
+                 ├── Metadata
+                 ├── Analytics
+                 └── Settings
+
+
+                 Qdrant
+                 │
+                 ├── Embeddings
+                 ├── Chunk Metadata
+                 └── Semantic Search
+
+
+                 Redis
+                 │
+                 ├── Session Cache
+                 ├── Workflow State
+                 ├── Streaming Cache
+                 ├── Agent State
+                 └── Rate Limiting
+```
+
+---
+
+# Real-Time Workflow Monitoring
+
+```text
+User Query
+      │
+      ▼
+Coordinator Agent
+      │
+      ▼
+Workflow Event Bus
+      │
+      ▼
+WebSocket Server
+      │
+      ▼
+React Dashboard
+
+Displays
+
+✓ Active Agent
+
+✓ Current Step
+
+✓ Workflow Progress
+
+✓ Execution Timeline
+
+✓ Live Logs
+
+✓ Agent Status
+
+✓ Workflow Graph
+
+✓ LLM Provider
+
+✓ Embedding Provider
+
+✓ Retry Count
+
+✓ Processing Time
+
+✓ Confidence Score
+```
+
+
 
 ## 📁 Project Structure
+
+'''text
 
 multimodal-agentic-rag/
 
@@ -223,6 +568,7 @@ multimodal-agentic-rag/
 ├── requirements.txt
 ├── docker-compose.yml
 └── README.md
+'''
 
 ---
 
