@@ -526,49 +526,62 @@ Displays
 
 
 
-## 📁 Project Structure
+# 📁 Project Structure
 
-'''text
-
-multimodal-agentic-rag/
-
-├── backend/
+```text
+Multimodal-Agentic-RAG/
 │
-├── agents/
-│   ├── coordinator_agent.py
-│   ├── planner_agent.py
-│   ├── retrieval_agent.py
-│   ├── vision_agent.py
-│   ├── websearch_agent.py
-│   ├── memory_agent.py
-│   ├── critic_agent.py
-│   └── answer_agent.py
+├── 📂 .github/                 # GitHub Actions CI/CD workflows
 │
-├── rag/
-│   ├── embeddings.py
-│   ├── retrieval.py
-│   ├── reranking.py
-│   └── indexing.py
+├── 📂 backend/
+│   ├── 📂 app/
+│   │   ├── 📂 agents/          # AI Agents
+│   │   ├── 📂 api/             # FastAPI endpoints
+│   │   ├── 📂 database/        # MongoDB & Redis
+│   │   ├── 📂 memory/          # Conversation memory
+│   │   ├── 📂 multimodal/      # PDF, Image, Audio & Video processing
+│   │   ├── 📂 rag/             # RAG pipeline
+│   │   ├── 📂 services/        # Business logic
+│   │   ├── 📂 tools/           # External integrations
+│   │   ├── 📂 utils/           # Helper utilities
+│   │   ├── 📂 vectorstore/     # Qdrant operations
+│   │   ├── 📂 workflows/       # LangGraph workflows
+│   │   ├── config.py
+│   │   ├── dependencies.py
+│   │   └── main.py
+│   │
+│   ├── requirements.txt
+│   └── Dockerfile
 │
-├── multimodal/
-│   ├── pdf_parser.py
-│   ├── image_processor.py
-│   ├── audio_processor.py
-│   ├── video_processor.py
-│   └── document_parser.py
+├── 📂 frontend/
+│   ├── 📂 src/
+│   │   ├── 📂 components/
+│   │   ├── 📂 context/
+│   │   ├── 📂 hooks/
+│   │   ├── 📂 pages/
+│   │   ├── 📂 routes/
+│   │   ├── 📂 services/
+│   │   ├── 📂 styles/
+│   │   ├── App.jsx
+│   │   └── main.jsx
+│   │
+│   ├── vite.config.js
+│   ├── tailwind.config.js
+│   └── package.json
 │
-├── memory/
+├── 📂 docker/                  # Docker configuration
+├── 📂 deploy/                  # Cloud deployment files
+├── 📂 docs/                    # Project documentation
+├── 📂 nginx/                   # Nginx configuration
+├── 📂 tests/                   # Unit & Integration tests
 │
-├── vector_store/
-│
-├── frontend/
-│
-├── docker/
-│
-├── requirements.txt
+├── .env.example
 ├── docker-compose.yml
-└── README.md
-'''
+├── render.yaml
+├── requirements.txt
+├── README.md
+└── LICENSE
+```
 
 ---
 
